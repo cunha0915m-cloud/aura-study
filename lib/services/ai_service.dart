@@ -51,6 +51,8 @@ class AiService {
             return _noKeyResponse();
           }
           return await _openai(history, openAiKey);
+        case AiProvider.ollama:
+          return await _ollama(history);
       }
     } catch (e) {
       debugPrint('⚠️ Erro no provider $provider: $e. Fazendo fallback para IA grátis...');
@@ -235,6 +237,51 @@ class AiService {
 
     return 'Olá! Desculpa, os servidores da IA pública gratuita estão com sobrecarga de momento. ⏳\n\n'
         '**Dica Aura Study:** Se tiveres uma chave de API da Gemini (Google), Claude (Anthropic) ou OpenAI, podes inseri-la nas **Definições da app** para teres acesso imediato aos modelos mais rápidos do mundo de forma 100% estável!';
+  }
+
+  // ───────── Ollama Server ─────────
+  Future<String> _ollama(List<Map<String, String>> history) async {
+    final messages = [
+      {'role': 'system', 'content': '${AppConfig.aiSystemPrompt} Responde sempre em português de Portugal.'},
+      ...history.map((m) => {
+            'role': m['role'] == 'assistant' ? 'assistant' : 'user',
+            'content': m['content'] ?? '',
+          }),
+    ];
+
+    // Fazemos um POST para o endpoint do Ollama
+    final res = await http.post(
+      Uri.parse('https://apichat.epvc.pt/api/chat'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'model': 'mistral', // Modelo comum em servidores de estudo. Se o servidor do utilizador tiver outro (ex: llama3, gemma), o Ollama faz o load automático.
+        'messages': messages,
+        'stream': false,
+      }),
+    );
+
+    if (res.statusCode != 200) {
+      // Se o 'mistral' não estiver disponível, tentamos com 'llama3'
+      final fallbackRes = await http.post(
+        Uri.parse('https://apichat.epvc.pt/api/chat'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'model': 'llama3',
+          'messages': messages,
+          'stream': false,
+        }),
+      );
+
+      if (fallbackRes.statusCode != 200) {
+        throw Exception('Ollama falhou nos modelos mistral e llama3. Código: ${fallbackRes.statusCode}');
+      }
+      
+      final data = jsonDecode(utf8.decode(fallbackRes.bodyBytes));
+      return data['message']['content'].toString().trim();
+    }
+
+    final data = jsonDecode(utf8.decode(res.bodyBytes));
+    return data['message']['content'].toString().trim();
   }
 
   // ───────── Sem chave configurada ─────────

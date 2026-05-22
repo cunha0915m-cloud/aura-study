@@ -89,27 +89,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 12),
                   const Text('Provider'),
                   const SizedBox(height: 8),
-                  SegmentedButton<AiProvider>(
-                    segments: const [
-                      ButtonSegment(
-                        value: AiProvider.free,
-                        label: Text('Free'),
-                        icon: Icon(Icons.bolt),
-                      ),
-                      ButtonSegment(
-                        value: AiProvider.gemini,
-                        label: Text('Gemini'),
-                        icon: Icon(Icons.auto_awesome),
-                      ),
-                      ButtonSegment(
-                        value: AiProvider.openai,
-                        label: Text('OpenAI'),
-                        icon: Icon(Icons.psychology_alt),
-                      ),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _providerChip(settings, AiProvider.free, 'Free', Icons.bolt),
+                      _providerChip(settings, AiProvider.gemini, 'Gemini', Icons.auto_awesome),
+                      _providerChip(settings, AiProvider.openai, 'OpenAI', Icons.psychology_alt),
+                      _providerChip(settings, AiProvider.anthropic, 'Claude', Icons.science_rounded),
+                      _providerChip(settings, AiProvider.ollama, 'Ollama', Icons.terminal_rounded),
                     ],
-                    selected: {settings.provider},
-                    onSelectionChanged: (s) =>
-                        settings.setProvider(s.first),
                   ),
                   const SizedBox(height: 14),
                   if (settings.provider == AiProvider.free)
@@ -134,6 +123,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ],
                       ),
                     )
+                  else if (settings.provider == AiProvider.ollama)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border:
+                            Border.all(color: AppColors.primary.withOpacity(0.3)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.computer_rounded, color: AppColors.primary),
+                          SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Ollama ativo! A app enviará as perguntas para o teu servidor local em https://apichat.epvc.pt/api de forma totalmente privada.',
+                              style: TextStyle(fontSize: 13),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
                   else ...[
                     TextField(
                       controller: _keyCtrl,
@@ -141,7 +152,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       decoration: InputDecoration(
                         hintText: settings.provider == AiProvider.gemini
                             ? 'Cola a tua Gemini API Key (AIza…)'
-                            : 'Cola a tua OpenAI API Key (sk-…)',
+                            : settings.provider == AiProvider.openai
+                                ? 'Cola a tua OpenAI API Key (sk-…)'
+                                : 'Cola a tua Claude API Key (sk-ant-…)',
                         prefixIcon: const Icon(Icons.key_rounded),
                         suffixIcon: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -177,7 +190,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Text(
                       settings.provider == AiProvider.gemini
                           ? 'Obtém uma chave grátis em aistudio.google.com/apikey'
-                          : 'Cria uma chave em platform.openai.com/api-keys',
+                          : settings.provider == AiProvider.openai
+                              ? 'Cria uma chave em platform.openai.com/api-keys'
+                              : 'Obtém uma chave em console.anthropic.com',
                       style: TextStyle(
                           fontSize: 12,
                           color: dark ? Colors.white60 : Colors.black54),
@@ -253,6 +268,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _providerChip(SettingsProvider settings, AiProvider provider, String label, IconData icon) {
+    final selected = settings.provider == provider;
+    return ChoiceChip(
+      avatar: Icon(icon, size: 16, color: selected ? Colors.white : AppColors.primary),
+      label: Text(label),
+      selected: selected,
+      selectedColor: AppColors.primary,
+      labelStyle: TextStyle(color: selected ? Colors.white : null),
+      onSelected: (val) {
+        if (val) {
+          settings.setProvider(provider);
+        }
+      },
     );
   }
 }

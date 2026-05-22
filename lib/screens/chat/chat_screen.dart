@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/chat_message.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../utils/constants.dart';
@@ -37,7 +39,9 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final chat = context.watch<ChatProvider>();
+    final activeTitle = chat.active?.title ?? 'Aura AI';
     return Scaffold(
+      drawer: _ChatsDrawer(),
       appBar: AppBar(
         title: Row(
           children: [
@@ -54,25 +58,35 @@ class _ChatScreenState extends State<ChatScreen> {
                   child: Text('✨', style: TextStyle(fontSize: 18))),
             ),
             const SizedBox(width: 10),
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Aura AI',
-                    style: TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.w700)),
-                Text('Sempre disponível ✨',
-                    style: TextStyle(fontSize: 11, color: Colors.grey)),
-              ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(activeTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w700)),
+                  const Text('Aura AI · sempre disponível ✨',
+                      style: TextStyle(fontSize: 11, color: Colors.grey)),
+                ],
+              ),
             ),
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Nova conversa',
+            onPressed: () => context.read<ChatProvider>().newSession(),
+            icon: const Icon(Icons.add_comment_outlined),
+          ),
           IconButton(
             onPressed: () =>
                 Navigator.pushNamed(context, AppRoutes.settings),
             icon: const Icon(Icons.settings_outlined),
           ),
           IconButton(
+            tooltip: 'Limpar conversa atual',
             onPressed: chat.clear,
             icon: const Icon(Icons.refresh_rounded),
           ),
@@ -184,6 +198,167 @@ class _ChatScreenState extends State<ChatScreen> {
                 color: Colors.white,
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChatsDrawer extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final chat = context.watch<ChatProvider>();
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Drawer(
+      child: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AppColors.primary, AppColors.primaryDark],
+                ),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('💬 As tuas Conversas',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 19,
+                          fontWeight: FontWeight.w800)),
+                  SizedBox(height: 4),
+                  Text('Organiza diferentes tópicos com a Aura AI',
+                      style: TextStyle(color: Colors.white70, fontSize: 12)),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () async {
+                    await context.read<ChatProvider>().newSession();
+                    if (context.mounted) Navigator.pop(context);
+                  },
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('Nova conversa'),
+                ),
+              ),
+            ),
+            const Divider(height: 0),
+            Expanded(
+              child: chat.sessions.isEmpty
+                  ? const Center(child: Text('Sem conversas ainda.'))
+                  : ListView.separated(
+                      itemCount: chat.sessions.length,
+                      separatorBuilder: (_, __) => const Divider(height: 0),
+                      itemBuilder: (_, i) {
+                        final s = chat.sessions[i];
+                        final selected = s.id == chat.activeId;
+                        return ListTile(
+                          selected: selected,
+                          selectedTileColor:
+                              AppColors.primary.withOpacity(0.08),
+                          leading: CircleAvatar(
+                            backgroundColor: selected
+                                ? AppColors.primary
+                                : (dark
+                                    ? Colors.white12
+                                    : Colors.grey.shade200),
+                            child: Icon(
+                              Icons.chat_bubble_outline,
+                              color: selected
+                                  ? Colors.white
+                                  : AppColors.primary,
+                              size: 18,
+                            ),
+                          ),
+                          title: Text(
+                            s.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontWeight: selected
+                                    ? FontWeight.w700
+                                    : FontWeight.w500),
+                          ),
+                          subtitle: Text(
+                            '${DateFormat('dd/MM HH:mm').format(s.createdAt)} · ${s.messages.length} mensagens',
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                          trailing: PopupMenuButton<String>(
+                            onSelected: (v) async {
+                              if (v == 'rename') {
+                                _renameDialog(context, s);
+                              } else if (v == 'delete') {
+                                await context
+                                    .read<ChatProvider>()
+                                    .deleteSession(s.id);
+                              }
+                            },
+                            itemBuilder: (_) => const [
+                              PopupMenuItem(
+                                value: 'rename',
+                                child: Row(children: [
+                                  Icon(Icons.edit_outlined, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Renomear'),
+                                ]),
+                              ),
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Row(children: [
+                                  Icon(Icons.delete_outline,
+                                      size: 18, color: Colors.red),
+                                  SizedBox(width: 8),
+                                  Text('Eliminar',
+                                      style: TextStyle(color: Colors.red)),
+                                ]),
+                              ),
+                            ],
+                          ),
+                          onTap: () {
+                            context
+                                .read<ChatProvider>()
+                                .selectSession(s.id);
+                            Navigator.pop(context);
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _renameDialog(BuildContext context, ChatSession s) {
+    final ctrl = TextEditingController(text: s.title);
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Renomear conversa'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: 'Novo título'),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () {
+              context.read<ChatProvider>().renameSession(s.id, ctrl.text);
+              Navigator.pop(context);
+            },
+            child: const Text('Guardar'),
           ),
         ],
       ),

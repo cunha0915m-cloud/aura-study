@@ -6,7 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// - [gemini]: Google Gemini (chave grátis em ai.google.dev)
 /// - [openai]: OpenAI (chave paga)
 /// - [anthropic]: Anthropic Claude (chave paga/grátis)
-enum AiProvider { free, gemini, openai, anthropic }
+/// - [ollama]: Servidor local/remoto de Ollama do utilizador
+enum AiProvider { free, gemini, openai, anthropic, ollama }
 
 /// Persiste configurações da IA + outras prefs.
 class SettingsProvider extends ChangeNotifier {
@@ -20,9 +21,11 @@ class SettingsProvider extends ChangeNotifier {
   String get apiKey => _apiKey;
   AiProvider get provider => _provider;
   bool get ready => _ready;
-  /// Provider [free] não precisa de chave.
+  /// Providers [free] e [ollama] não precisam de chave API obrigatória.
   bool get isReadyToChat =>
-      _provider == AiProvider.free || _apiKey.trim().isNotEmpty;
+      _provider == AiProvider.free ||
+      _provider == AiProvider.ollama ||
+      _apiKey.trim().isNotEmpty;
 
   SettingsProvider() {
     _load();
@@ -36,6 +39,7 @@ class SettingsProvider extends ChangeNotifier {
       'openai' => AiProvider.openai,
       'gemini' => AiProvider.gemini,
       'anthropic' => AiProvider.anthropic,
+      'ollama' => AiProvider.ollama,
       _ => AiProvider.free,
     };
     _ready = true;

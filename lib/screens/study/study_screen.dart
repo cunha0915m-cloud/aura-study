@@ -93,7 +93,6 @@ class StudyScreen extends StatelessWidget {
 
   Widget _statsCard(BuildContext ctx) {
     final goals = ctx.watch<GoalsProvider>();
-    final done = goals.all.where((g) => g.done).length;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -102,11 +101,41 @@ class StudyScreen extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(22),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _stat('🔥', '$done', 'objetivos\nfeitos'),
-          _stat('⭐', 'Nv ${goals.level}', '${goals.xp} XP'),
-          _stat('🎯', '${goals.all.length}', 'no total'),
+          Row(
+            children: [
+              _stat('🔥', '${goals.goalsCompleted}', 'feitos'),
+              _stat('⭐', 'Nv ${goals.level}', goals.levelTitle),
+              _stat('🎯', '${goals.goalsTotal}', 'total'),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Text('${goals.xp} XP',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13)),
+              const Spacer(),
+              Text('${goals.xpToNextLevel} XP para Nv ${goals.level + 1}',
+                  style: const TextStyle(
+                      color: Colors.white70, fontSize: 11)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: goals.levelProgress.clamp(0.0, 1.0),
+              minHeight: 8,
+              backgroundColor: Colors.white24,
+              valueColor:
+                  const AlwaysStoppedAnimation<Color>(Colors.white),
+            ),
+          ),
         ],
       ),
     );
@@ -248,28 +277,76 @@ class StudyScreen extends StatelessWidget {
       ),
       child: Column(
         children: goals.map((g) {
-          return ListTile(
-            leading: Icon(
-              g.done
-                  ? Icons.check_circle_rounded
-                  : Icons.radio_button_unchecked,
-              color: g.done ? AppColors.primary : Colors.grey,
-            ),
-            title: Text(
-              g.text,
-              style: TextStyle(
-                decoration: g.done ? TextDecoration.lineThrough : null,
-                color: g.done ? Colors.grey : null,
+          return Dismissible(
+            key: ValueKey('home_${g.id}'),
+            direction: DismissDirection.endToStart,
+            background: Container(
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              decoration: BoxDecoration(
+                color: Colors.redAccent.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(20),
               ),
+              child: const Icon(Icons.delete, color: Colors.redAccent),
             ),
-            subtitle: Text('${Subjects.emoji(g.subject)} ${g.subject}',
-                style: const TextStyle(fontSize: 11)),
-            trailing: Text('+${g.xp} XP',
-                style: const TextStyle(
-                    color: AppColors.primary, fontWeight: FontWeight.bold)),
-            onTap: () => goalsProv.toggleDone(g.id),
+            onDismissed: (_) => goalsProv.remove(g.id),
+            child: ListTile(
+              leading: Icon(
+                g.done
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked,
+                color: g.done ? AppColors.primary : Colors.grey,
+              ),
+              title: Text(
+                g.text,
+                style: TextStyle(
+                  decoration: g.done ? TextDecoration.lineThrough : null,
+                  color: g.done ? Colors.grey : null,
+                ),
+              ),
+              subtitle: Text('${Subjects.emoji(g.subject)} ${g.subject}',
+                  style: const TextStyle(fontSize: 11)),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('+${g.xp} XP',
+                      style: const TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.bold)),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline,
+                        color: Colors.redAccent, size: 20),
+                    onPressed: () => _confirmDelete(ctx, goalsProv, g.id),
+                  ),
+                ],
+              ),
+              onTap: () => goalsProv.toggleDone(g.id),
+            ),
           );
         }).toList(),
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext ctx, GoalsProvider prov, String id) {
+    showDialog(
+      context: ctx,
+      builder: (_) => AlertDialog(
+        title: const Text('Eliminar objetivo?'),
+        content: const Text('Esta ação é irreversível.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () {
+              prov.remove(id);
+              Navigator.pop(ctx);
+            },
+            child: const Text('Eliminar'),
+          ),
+        ],
       ),
     );
   }

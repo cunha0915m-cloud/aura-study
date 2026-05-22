@@ -69,9 +69,43 @@ class GoalsProvider extends ChangeNotifier {
   }
 
   int get xp => _xp;
-  int get level => 1 + (_xp ~/ 100);
-  double get levelProgress => (_xp % 100) / 100.0;
-  int get xpToNextLevel => 100 - (_xp % 100);
+
+  /// XP necessário para chegar ao nível n (curva progressiva).
+  /// Nível 1 = 0 XP, Nível 2 = 100, Nível 3 = 250, Nível 4 = 450...
+  /// Fórmula: xp(n) = 50 * n * (n-1).
+  int _xpRequiredFor(int level) => 50 * level * (level - 1);
+
+  int get level {
+    int lvl = 1;
+    while (_xpRequiredFor(lvl + 1) <= _xp) {
+      lvl++;
+    }
+    return lvl;
+  }
+
+  int get xpAtCurrentLevel => _xp - _xpRequiredFor(level);
+  int get xpForNextLevel =>
+      _xpRequiredFor(level + 1) - _xpRequiredFor(level);
+  double get levelProgress =>
+      xpForNextLevel == 0 ? 1.0 : xpAtCurrentLevel / xpForNextLevel;
+  int get xpToNextLevel => xpForNextLevel - xpAtCurrentLevel;
+
+  /// Título do nível atual.
+  String get levelTitle {
+    final l = level;
+    if (l >= 30) return '🏆 Lenda';
+    if (l >= 20) return '👑 Mestre';
+    if (l >= 15) return '🚀 Especialista';
+    if (l >= 10) return '⭐ Avançado';
+    if (l >= 6) return '📚 Aprendiz';
+    if (l >= 3) return '🌱 Estudante';
+    return '✨ Iniciante';
+  }
+
+  int get goalsCompleted => _goals.where((g) => g.done).length;
+  int get goalsTotal => _goals.length;
+  double get globalProgress =>
+      goalsTotal == 0 ? 0.0 : goalsCompleted / goalsTotal;
 
   GoalsProvider() {
     _load();
